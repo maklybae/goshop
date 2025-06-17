@@ -64,6 +64,7 @@ services:
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
       ZOOKEEPER_SYNC_LIMIT: 2
+    profiles: [ "kafka-only", "prod" ]
 
   kafka:
     image: confluentinc/cp-kafka:7.1.2
@@ -87,6 +88,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 10
+    profiles: [ "kafka-only", "prod" ]
 
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
@@ -98,8 +100,30 @@ services:
       - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
     depends_on:
       - kafka
+    profiles: [ "kafka-only", "prod" ]
+
+  gateway:
+    build:
+      context: .
+      dockerfile: gateway/Dockerfile
+    ports:
+      - "8000:8080"
+    depends_on:
+      - order
+      - payment
+    profiles: [ "prod" ]
+
+  frontend:
+    build: ./frontend
+    ports:
+      - "8080:80"
+    depends_on:
+      - gateway
+    environment:
+      - VITE_API_URL=http://gateway:8080
+    profiles: [ "prod" ]
 
 
 volumes:
-  analysis_db_data:
-  storage_db_data:
+  order_db_data:
+  payment_db_data:
