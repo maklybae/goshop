@@ -10,6 +10,10 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type Transactor interface {
+	WithTransaction(context.Context, func(context.Context) error) error
+}
+
 type Querier interface {
 	SendBatch(ctx context.Context, b *pgx.Batch) pgx.BatchResults
 	Exec(ctx context.Context, sql string, arguments ...any) (commandTag pgconn.CommandTag, err error)

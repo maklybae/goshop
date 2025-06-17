@@ -6,7 +6,7 @@ CREATE TYPE order_status AS ENUM (
     'cancelled'
 );
 
-CREATE TABLE orders (
+CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY,
     user_id UUID NOT NULL,
     description TEXT,
@@ -17,7 +17,7 @@ CREATE TABLE orders (
 
 -- +goose Down
 -- +goose StatementBegin
-DROP TABLE orders;
+DROP TABLE IF EXISTS orders;
 
-DROP TYPE order_status;
+DROP TYPE IF EXISTS order_status;
 -- +goose StatementEnd

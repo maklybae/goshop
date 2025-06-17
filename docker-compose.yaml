@@ -1,0 +1,105 @@
+services:
+  order:
+    build:
+      context: .
+      dockerfile: order/Dockerfile
+    depends_on:
+      order_db:
+        condition: service_healthy
+    env_file:
+      - ./order/.env
+    ports:
+      - "8081:50051"
+    profiles: [ "order-only", "prod", "grpc-only" ]
+
+  order_db:
+    image: postgres:16
+    env_file:
+      - ./order/.env.db
+    ports:
+      - "5433:5432"
+    volumes:
+      - order_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d order" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: [ "db-only", "order-only", "prod", "grpc-only" ]
+
+  payment:
+    build:
+      context: .
+      dockerfile: payment/Dockerfile
+    depends_on:
+      payment_db:
+        condition: service_healthy
+    env_file:
+      - ./payment/.env
+    ports:
+      - "8082:50051"
+    profiles: [ "payment-only", "prod", "grpc-only" ]
+
+  payment_db:
+    image: postgres:16
+    env_file:
+      - ./payment/.env.db
+    ports:
+      - "5434:5432"
+    volumes:
+      - payment_db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres -d payment" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    profiles: [ "db-only", "payment-only", "prod", "grpc-only" ]
+  
+  zookeeper:
+    image: confluentinc/cp-zookeeper:7.1.2
+    container_name: zookeeper
+    ports:
+      - "2181:2181"
+    environment:
+      ZOOKEEPER_CLIENT_PORT: 2181
+      ZOOKEEPER_TICK_TIME: 2000
+      ZOOKEEPER_SYNC_LIMIT: 2
+
+  kafka:
+    image: confluentinc/cp-kafka:7.1.2
+    container_name: kafka
+    hostname: kafka
+    ports:
+      - "9092:9092"
+      - "29092:29092"
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092,PLAINTEXT_HOST://host.docker.internal:29092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'
+    depends_on:
+      - zookeeper
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server localhost:9092 --list || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-ui
+    ports:
+      - "8083:8080"
+    environment:
+      - KAFKA_CLUSTERS_0_NAME=local
+      - KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS=kafka:9092
+    depends_on:
+      - kafka
+
+
+volumes:
+  analysis_db_data:
+  storage_db_data:

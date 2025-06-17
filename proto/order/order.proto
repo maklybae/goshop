@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package order;
+
+option go_package = "github.com/maklybae/goshop/order/genproto/order;order";
+
+import "google/api/annotations.proto";
+
+service OrderService {
+  // Создать заказ
+  rpc CreateOrder(CreateOrderRequest) returns (OrderResponse) {
+    option (google.api.http) = {
+      post : "/api/v1/orders"
+      body : "*"
+    };
+  }
+
+  // Получить список заказов пользователя
+  rpc ListOrders(ListOrdersRequest) returns (ListOrdersResponse) {
+    option (google.api.http) = {
+      get : "/api/v1/orders"
+    };
+  }
+
+  // Получить статус заказа
+  rpc GetOrderStatus(GetOrderStatusRequest) returns (GetOrderStatusResponse) {
+    option (google.api.http) = {
+      get : "/api/v1/orders/{order_id}/status"
+    };
+  }
+}
+
+message CreateOrderRequest {
+  string user_id = 1;
+  string description = 2;
+  int64 amount = 3;
+}
+
+message OrderResponse {
+  string id = 1;
+  string user_id = 2;
+  string description = 3;
+  int64 amount = 4;
+  string status = 5;
+}
+
+message ListOrdersRequest { string user_id = 1; }
+
+message ListOrdersResponse { repeated OrderResponse orders = 1; }
+
+message GetOrderStatusRequest { string order_id = 1; }
+
+message GetOrderStatusResponse { string status = 1; }

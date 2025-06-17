@@ -12,6 +12,7 @@ import (
 
 type Repository interface {
 	Add(ctx context.Context, message *Message) error
+	SetReserved(ctx context.Context, id uuid.UUID, reservedTo time.Time) error
 	GetUnprocessed(ctx context.Context, limit int, reservedExpired time.Time) ([]*Message, error)
 	MarkAsProcessed(ctx context.Context, id uuid.UUID) error
 }
@@ -24,13 +25,24 @@ func NewPostgresRepository(db *pgxpool.Pool) *PostgresRepository {
 	return &PostgresRepository{db: db}
 }
 
-func (r *PostgresRepository) Add(ctx context.Context, message *Message, reservedTo time.Time) error {
+func (r *PostgresRepository) Add(ctx context.Context, message *Message) error {
 	querier := txs.GetQuerier(ctx, r.db)
 
-	_, err := querier.Exec(ctx, "INSERT INTO outbox (id, event_type, payload, reserved_to) VALUES ($1, $2, $3, $4)",
-		message.ID, message.EventType, message.Payload, reservedTo)
+	_, err := querier.Exec(ctx, "INSERT INTO outbox (id, event_type, payload) VALUES ($1, $2, $3)",
+		message.ID, message.EventType, message.Payload)
 	if err != nil {
 		return fmt.Errorf("failed to add message to outbox: %w", err)
+	}
+
+	return nil
+}
+
+func (r *PostgresRepository) SetReserved(ctx context.Context, id uuid.UUID, reservedTo time.Time) error {
+	querier := txs.GetQuerier(ctx, r.db)
+
+	_, err := querier.Exec(ctx, "UPDATE outbox SET reserved_to = $1 WHERE id = $2", reservedTo, id)
+	if err != nil {
+		return fmt.Errorf("failed to set reserved time for message: %w", err)
 	}
 
 	return nil
@@ -41,7 +53,12 @@ func (r *PostgresRepository) GetUnprocessed(ctx context.Context, limit int, rese
 
 	rows, err := querier.Query(
 		ctx,
-		"SELECT id, event_type, payload FROM outbox WHERE processed = false AND (reserved_to IS NULL OR reserved_to < $1) LIMIT $2",
+		`SELECT id, event_type, payload
+		 FROM outbox
+		 WHERE processed = false
+		   AND (reserved_to IS NULL OR reserved_to < $1)
+		 LIMIT $2
+		 FOR UPDATE SKIP LOCKED`,
 		reservedExpired, limit,
 	)
 	if err != nil {

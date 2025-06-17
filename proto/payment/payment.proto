@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package payment;
+
+option go_package = "github.com/maklybae/goshop/payment/genproto/payment;payment";
+
+import "google/api/annotations.proto";
+
+service PaymentService {
+  // Создать счет
+  rpc CreateAccount(CreateAccountRequest) returns (AccountResponse) {
+    option (google.api.http) = {
+      post : "/api/v1/payment/accounts"
+      body : "*"
+    };
+  }
+
+  // Пополнить счет
+  rpc Deposit(DepositRequest) returns (AccountResponse) {
+    option (google.api.http) = {
+      post : "/api/v1/payment/accounts/{user_id}/deposit"
+      body : "*"
+    };
+  }
+
+  // Получить баланс
+  rpc GetBalance(GetBalanceRequest) returns (AccountResponse) {
+    option (google.api.http) = {
+      get : "/api/v1/payment/accounts/{user_id}/balance"
+    };
+  }
+}
+
+message CreateAccountRequest { string user_id = 1; }
+
+message DepositRequest {
+  string user_id = 1;
+  int64 amount = 2;
+}
+
+message GetBalanceRequest { string user_id = 1; }
+
+message AccountResponse {
+  string user_id = 1;
+  int64 amount = 2;
+}
